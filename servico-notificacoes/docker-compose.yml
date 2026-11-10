@@ -1,0 +1,32 @@
+# Sobe so o Servico de Notificacoes + Mailpit. Rode de dentro desta pasta:
+#   docker compose up --build
+services:
+
+  notificacoes:
+    build:
+      context: ..                              # raiz do repositorio (onde esta o pom pai)
+      dockerfile: servico-notificacoes/Dockerfile
+    container_name: servico-notificacoes
+    ports:
+      - "8084:8084"
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      # Opcional: URL de um webhook do Discord (veja o README)
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - notificacoes-data:/data
+    depends_on:
+      - mailpit
+
+  # Servidor de e-mail falso para desenvolvimento:
+  # captura todos os e-mails enviados e mostra em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "8025:8025"   # interface web
+      - "1025:1025"   # SMTP
+
+volumes:
+  notificacoes-data:
