@@ -1,0 +1,17 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### SQLite ###
+*.db
+*.db-journal
+
+### IDEs ###
+.idea/
+*.iml
+.vscode/
+.project
+.settings/
+
+### OS ###
+.DS_Store
+Thumbs.db
