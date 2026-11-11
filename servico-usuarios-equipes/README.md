@@ -25,7 +25,8 @@ Para garantir a integridade da formação das equipes de acordo com a modalidade
 
 ### 2. Comunicação Inter-Serviços com OpenFeign
 Integração com o `servico-notificacoes` (**UC07**):
-- **`NotificacaoClient`**: Declara os contratos REST (`POST /api/notificacoes`) para notificar o chefe de equipe assim que o grupo for criado com sucesso.
+- **`NotificacaoClient`**: Declara o contrato REST `POST /notificacoes` (veja `servico-notificacoes/CONTRATO-API.md`).
+- **`NotificacaoGateway`**: Único ponto de envio. Usado no cadastro de usuário (credenciais por e-mail, UC02) e na criação de equipe (aviso ao chefe, UC03). Se o serviço de notificações falhar ou estiver fora do ar, devolve `false` e o cadastro **não** é desfeito (RN03 do UC07 / FA03 do UC02).
 
 ---
 
@@ -33,7 +34,8 @@ Integração com o `servico-notificacoes` (**UC07**):
 
 | Método | Endpoint | Descrição | Casos de Uso |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/usuarios` | Cadastra um novo usuário | UC02 |
+| `POST` | `/api/usuarios` | Cadastra um novo usuário, gera senha provisória e envia as credenciais por e-mail | UC02 / UC07 |
+| `PUT` | `/api/usuarios/{id}/senha` | Altera a senha (`senhaAtual`, `novaSenha`) | Alterar Senha |
 | `GET` | `/api/usuarios` | Lista todos os usuários cadastrados | UC02 |
 | `GET` | `/api/usuarios/{id}` | Busca um usuário por ID | UC02 |
 | `POST` | `/api/equipes` | Cadastra uma nova equipe (valida elenco + notifica chefe) | UC03 / UC07 |
@@ -56,4 +58,5 @@ spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 
 # Integração com o Serviço de Notificações
-app.services.notificacoes.url=http://localhost:8083
+# Fora do Docker: http://localhost:8084 | No docker-compose da raiz: http://notificacoes:8084
+app.services.notificacoes.url=${NOTIFICACOES_URL:http://localhost:8084}

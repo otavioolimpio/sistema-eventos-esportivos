@@ -1,5 +1,6 @@
 package microservicos.servicousuariosequipes.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -35,6 +36,19 @@ public class Usuario {
     @NotNull(message = "Perfil e obrigatorio")
     @Enumerated(EnumType.STRING)
     private TipoPerfil tipoPerfil;
+
+    /** Hash BCrypt da senha. Nunca vai para o JSON. */
+    @JsonIgnore
+    @Column(name = "senha_hash")
+    private String senhaHash;
+
+    public String getSenhaHash() {
+        return senhaHash;
+    }
+
+    public void setSenhaHash(String senhaHash) {
+        this.senhaHash = senhaHash;
+    }
 
     public Long getId() {
         return id;

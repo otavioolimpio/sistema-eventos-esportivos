@@ -1,0 +1,6 @@
+# Usado pelo BuildKit para este Dockerfile (o contexto de build e a raiz do repositorio)
+**/target/
+**/*.db
+**/.idea/
+**/.vscode/
+.git/

@@ -37,3 +37,35 @@ sistema-eventos-esportivos/
 Na raiz do repositório, execute:
 ```bash
 mvn clean package
+```
+
+### Testes automatizados
+```bash
+mvn -f servico-usuarios-equipes/pom.xml test
+```
+
+* `UsuarioServiceTest`: criar usuário envia as credenciais por e-mail; falha no envio não desfaz o cadastro (FA03).
+* `IntegracaoNotificacoesTest`: sobe o serviço inteiro com um servidor HTTP falso no lugar do `servico-notificacoes` e confere a URL, o caminho `/notificacoes` e o JSON enviados.
+
+### Subindo tudo com Docker
+Na raiz do repositório:
+```bash
+docker compose up --build
+```
+
+| Serviço | URL |
+| :--- | :--- |
+| `servico-usuarios-equipes` | http://localhost:8081 |
+| `servico-notificacoes` | http://localhost:8084 |
+| Mailpit (caixa de e-mail de teste) | http://localhost:8025 |
+
+### Teste manual: criar usuário dispara notificação
+```bash
+curl -X POST http://localhost:8081/api/usuarios \
+  -H "Content-Type: application/json" \
+  -d '{"nome":"Ana","email":"ana@exemplo.com","cpf":"111.222.333-44","tipoPerfil":"CHEFE_EQUIPE"}'
+```
+
+A resposta traz `"credenciaisEnviadas": true`. O e-mail com a senha provisória aparece no Mailpit (http://localhost:8025), e o registro aparece em `GET http://localhost:8084/notificacoes`.
+
+No Windows (PowerShell), use `curl.exe` no lugar de `curl`, ou teste pelo Postman/Insomnia.

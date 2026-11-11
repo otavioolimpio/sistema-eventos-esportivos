@@ -26,5 +26,6 @@
 
     <modules>
         <module>servico-usuarios-equipes</module>
+        <module>servico-notificacoes</module>
     </modules>
 </project>

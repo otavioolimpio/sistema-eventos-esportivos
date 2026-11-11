@@ -1,0 +1,53 @@
+# Sobe o ecossistema inteiro. Na raiz do repositorio:
+#   docker compose up --build
+#
+#   servico-usuarios-equipes -> http://localhost:8081
+#   servico-notificacoes     -> http://localhost:8084
+#   Mailpit (e-mails)        -> http://localhost:8025
+#
+# Dentro da rede do compose, cada servico e encontrado pelo NOME do bloco
+# (ex.: http://notificacoes:8084), e nao por localhost.
+services:
+
+  usuarios-equipes:
+    build:
+      context: .
+      dockerfile: servico-usuarios-equipes/Dockerfile
+    container_name: servico-usuarios-equipes
+    ports:
+      - "8081:8081"
+    environment:
+      NOTIFICACOES_URL: http://notificacoes:8084
+    volumes:
+      - usuarios-data:/data
+    depends_on:
+      - notificacoes
+
+  notificacoes:
+    build:
+      context: .
+      dockerfile: servico-notificacoes/Dockerfile
+    container_name: servico-notificacoes
+    ports:
+      - "8084:8084"
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      # Opcional: URL de um webhook do Discord (veja servico-notificacoes/README.md)
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - notificacoes-data:/data
+    depends_on:
+      - mailpit
+
+  # Servidor de e-mail falso: captura todos os e-mails e mostra em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "8025:8025"   # interface web
+      - "1025:1025"   # SMTP
+
+volumes:
+  usuarios-data:
+  notificacoes-data:
