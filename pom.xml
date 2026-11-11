@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>sistema-eventos-parent</name>
-    <description>Projeto Pai do Ecossistema de Microserviços Esportivos</description>
+    <description>Projeto Pai do Ecossistema de Microservicos Esportivos</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -21,13 +21,10 @@
 
     <properties>
         <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <modules>
         <module>servico-usuarios-equipes</module>
-        <module>servico-eventos</module>
-        <module>servico-inscricoes</module>
-        <module>servico-notificacoes</module>
     </modules>
-
 </project>

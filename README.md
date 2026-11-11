@@ -9,6 +9,17 @@ Monorepo contendo a arquitetura de microserviços desenvolvida com Java 21, Spri
 * **`servico-inscricoes`**: Solicitação e aprovação/rejeição de inscrições em eventos.
 * **`servico-notificacoes`**: Envio de notificações para os usuários.
 
+## Estrutura do Projeto
+
+```text
+sistema-eventos-esportivos/
+├── pom.xml                           # Parent POM (Gerenciamento centralizado de dependências)
+├── .gitignore                        # Regras de ignorados (compilados, IDEs e bancos .db)
+├── README.md                         # Documentação do ecossistema
+└── servico-usuarios-equipes/         # Microserviço de Usuários e Equipes (Porta 8081)
+    ├── pom.xml
+    └── src/
+
 ## Tecnologias Utilizadas
 
 * **Linguagem:** Java 21
