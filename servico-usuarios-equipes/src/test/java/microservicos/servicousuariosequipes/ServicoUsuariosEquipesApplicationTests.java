@@ -1,4 +1,4 @@
-package br.com.microservicos.servicousuariosequipes;
+package microservicos.servicousuariosequipes;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
