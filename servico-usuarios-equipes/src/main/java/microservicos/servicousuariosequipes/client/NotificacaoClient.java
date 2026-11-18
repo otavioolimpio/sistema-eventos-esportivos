@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 /** Cliente da interface INotificacaoService (servico-notificacoes, POST /notificacoes). */
-@FeignClient(name = "servico-notificacoes", url = "${app.services.notificacoes.url}")
+@FeignClient(name = "servico-notificacoes", url = "${app.services.notificacoes.url:}")
 public interface NotificacaoClient {
 
     @PostMapping("/notificacoes")

@@ -25,6 +25,8 @@
     </properties>
 
     <modules>
+        <module>service-discovery</module>
+        <module>api-gateway</module>
         <module>servico-usuarios-equipes</module>
         <module>servico-eventos</module>
         <module>servico-inscricoes</module>

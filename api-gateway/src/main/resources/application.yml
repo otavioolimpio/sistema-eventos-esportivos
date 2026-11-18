@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Servico de Usuarios e Equipes (UC02, UC03)
+        - id: usuarios-equipes
+          uri: lb://servico-usuarios-equipes
+          predicates:
+            - Path=/api/usuarios/**,/api/equipes/**
+        # Servico de Eventos (UC01, UC04)
+        - id: eventos
+          uri: lb://servico-eventos
+          predicates:
+            - Path=/api/modalidades/**,/api/eventos/**
+        # Servico de Inscricoes (UC05, UC06)
+        - id: inscricoes
+          uri: lb://servico-inscricoes
+          predicates:
+            - Path=/api/inscricoes/**
+        # Servico de Notificacoes (UC07)
+        - id: notificacoes
+          uri: lb://servico-notificacoes
+          predicates:
+            - Path=/notificacoes/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true

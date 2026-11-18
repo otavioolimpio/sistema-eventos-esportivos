@@ -1,10 +1,42 @@
+# So api-gateway (8080), service-discovery (8761) e mailpit (8025) publicam portas.
+# Os servicos de negocio ficam acessiveis apenas dentro da rede eventos-net.
 services:
+  # Service Discovery (Eureka): cada microsservico se registra aqui pelo nome.
+  # Painel em http://localhost:8761
+  service-discovery:
+    build:
+      context: .
+      dockerfile: service-discovery/Dockerfile
+    container_name: service-discovery
+    ports:
+      - "8761:8761"
+    restart: unless-stopped
+    networks:
+      - eventos-net
+
+  # API Gateway: UNICA porta de entrada da aplicacao (http://localhost:8080).
+  # Roteia pelo nome do servico no Eureka (lb://servico-xxx).
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_URL=http://service-discovery:8761/eureka/
+    depends_on:
+      - service-discovery
+    restart: unless-stopped
+    networks:
+      - eventos-net
+
   mailpit:
     image: axllent/mailpit
     container_name: mailpit
     ports:
-      - "8025:8025"
-      - "1025:1025"
+      - "8025:8025"   # caixa de e-mail (web); o SMTP 1025 fica so na rede interna
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -13,13 +45,14 @@ services:
       context: .
       dockerfile: servico-notificacoes/Dockerfile
     container_name: servico-notificacoes
-    ports:
-      - "8084:8084"
     environment:
+      - EUREKA_URL=http://service-discovery:8761/eureka/
       - SPRING_MAIL_HOST=mailpit
       - SPRING_MAIL_PORT=1025
     depends_on:
+      - service-discovery
       - mailpit
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -28,12 +61,11 @@ services:
       context: .
       dockerfile: servico-usuarios-equipes/Dockerfile
     container_name: servico-usuarios-equipes
-    ports:
-      - "8081:8081"
     environment:
-      - APP_SERVICES_NOTIFICACOES_URL=http://servico-notificacoes:8084
+      - EUREKA_URL=http://service-discovery:8761/eureka/
     depends_on:
-      - servico-notificacoes
+      - service-discovery
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -42,12 +74,11 @@ services:
       context: .
       dockerfile: servico-eventos/Dockerfile
     container_name: servico-eventos
-    ports:
-      - "8082:8082"
     environment:
-      - APP_SERVICES_USUARIOS_EQUIPES_URL=http://servico-usuarios-equipes:8081
+      - EUREKA_URL=http://service-discovery:8761/eureka/
     depends_on:
-      - servico-usuarios-equipes
+      - service-discovery
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -56,16 +87,11 @@ services:
       context: .
       dockerfile: servico-inscricoes/Dockerfile
     container_name: servico-inscricoes
-    ports:
-      - "8083:8083"
     environment:
-      - APP_SERVICES_USUARIOS_EQUIPES_URL=http://servico-usuarios-equipes:8081
-      - APP_SERVICES_EVENTOS_URL=http://servico-eventos:8082
-      - APP_SERVICES_NOTIFICACOES_URL=http://servico-notificacoes:8084
+      - EUREKA_URL=http://service-discovery:8761/eureka/
     depends_on:
-      - servico-usuarios-equipes
-      - servico-eventos
-      - servico-notificacoes
+      - service-discovery
+    restart: unless-stopped
     networks:
       - eventos-net
 
