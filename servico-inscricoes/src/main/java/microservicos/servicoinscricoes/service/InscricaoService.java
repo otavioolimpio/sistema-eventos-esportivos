@@ -118,13 +118,19 @@ public class InscricaoService {
                     + "' no evento '" + evento.getNome() + "' foi " + statusTexto + "."
                     + (inscricao.getJustificativa() != null ? " Observacao: " + inscricao.getJustificativa() : "");
 
-            notificacaoClient.enviarNotificacao(new NotificacaoRequestDTO(
+            NotificacaoResponseDTO resposta = notificacaoClient.enviarNotificacao(new NotificacaoRequestDTO(
                     "EMAIL",
                     chefe.getEmail(),
                     assunto,
                     corpo
             ));
-            notificacaoEnviada = true;
+            // RN03 do UC07: o servico responde 201 mesmo com falha do provedor;
+            // so consideramos enviado quando o status vem como ENVIADA.
+            notificacaoEnviada = resposta != null && resposta.foiEnviada();
+            if (!notificacaoEnviada) {
+                aviso = "Inscricao atualizada com sucesso, mas o e-mail nao foi enviado"
+                        + (resposta != null && resposta.erro() != null ? ": " + resposta.erro() : ".");
+            }
         } catch (Exception e) {
             aviso = "Inscricao atualizada com sucesso, mas houve falha ao enviar notificacao por e-mail.";
         }
