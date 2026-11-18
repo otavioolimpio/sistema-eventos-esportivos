@@ -1,13 +1,21 @@
-FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
+# Build a partir da RAIZ do repositorio (o pom pai fica la):
+#   docker build -f servico-eventos/Dockerfile .
+# ou, na raiz: docker compose up --build
+
+# Etapa 1: compila o modulo com Maven
+# --mount=type=cache: o repositorio local do Maven (/root/.m2) fica num cache do
+# BuildKit compartilhado entre os modulos, para nao baixar tudo de novo a cada build
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml ./pom.xml
+COPY servico-eventos/pom.xml ./servico-eventos/pom.xml
+RUN --mount=type=cache,target=/root/.m2 mvn -q -B -f servico-eventos/pom.xml dependency:go-offline
+COPY servico-eventos/src ./servico-eventos/src
+RUN --mount=type=cache,target=/root/.m2 mvn -q -B -f servico-eventos/pom.xml package -DskipTests
+
+# Etapa 2: imagem final, so com o Java e o .jar
+FROM eclipse-temurin:21-jre
 WORKDIR /app
-
-COPY servico-eventos/pom.xml ./pom.xml
-COPY servico-eventos/src ./src
-
-RUN mvn clean package -DskipTests
-
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /build/servico-eventos/target/servico-eventos-*.jar app.jar
 EXPOSE 8082
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

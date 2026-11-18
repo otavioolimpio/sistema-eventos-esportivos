@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * Cliente da interface INotificacaoService (servico-notificacoes, POST /notificacoes).
  * Devolve o DTO de resposta: o envio so conta como feito quando status == "ENVIADA".
  */
-@FeignClient(name = "servico-notificacoes", url = "${app.services.notificacoes.url}")
+@FeignClient(name = "servico-notificacoes", url = "${app.services.notificacoes.url:}")
 public interface NotificacaoClient {
 
     @PostMapping("/notificacoes")

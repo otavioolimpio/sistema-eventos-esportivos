@@ -25,6 +25,7 @@
     </properties>
 
     <modules>
+        <module>service-discovery</module>
         <module>servico-usuarios-equipes</module>
         <module>servico-eventos</module>
         <module>servico-inscricoes</module>

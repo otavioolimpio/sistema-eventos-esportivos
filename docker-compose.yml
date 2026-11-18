@@ -1,10 +1,24 @@
 services:
+  # Service Discovery (Eureka): cada microsservico se registra aqui pelo nome.
+  # Painel em http://localhost:8761
+  service-discovery:
+    build:
+      context: .
+      dockerfile: service-discovery/Dockerfile
+    container_name: service-discovery
+    ports:
+      - "8761:8761"
+    restart: unless-stopped
+    networks:
+      - eventos-net
+
   mailpit:
     image: axllent/mailpit
     container_name: mailpit
     ports:
       - "8025:8025"
       - "1025:1025"
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -16,10 +30,13 @@ services:
     ports:
       - "8084:8084"
     environment:
+      - EUREKA_URL=http://service-discovery:8761/eureka/
       - SPRING_MAIL_HOST=mailpit
       - SPRING_MAIL_PORT=1025
     depends_on:
+      - service-discovery
       - mailpit
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -31,9 +48,10 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - APP_SERVICES_NOTIFICACOES_URL=http://servico-notificacoes:8084
+      - EUREKA_URL=http://service-discovery:8761/eureka/
     depends_on:
-      - servico-notificacoes
+      - service-discovery
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -45,9 +63,10 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - APP_SERVICES_USUARIOS_EQUIPES_URL=http://servico-usuarios-equipes:8081
+      - EUREKA_URL=http://service-discovery:8761/eureka/
     depends_on:
-      - servico-usuarios-equipes
+      - service-discovery
+    restart: unless-stopped
     networks:
       - eventos-net
 
@@ -59,13 +78,10 @@ services:
     ports:
       - "8083:8083"
     environment:
-      - APP_SERVICES_USUARIOS_EQUIPES_URL=http://servico-usuarios-equipes:8081
-      - APP_SERVICES_EVENTOS_URL=http://servico-eventos:8082
-      - APP_SERVICES_NOTIFICACOES_URL=http://servico-notificacoes:8084
+      - EUREKA_URL=http://service-discovery:8761/eureka/
     depends_on:
-      - servico-usuarios-equipes
-      - servico-eventos
-      - servico-notificacoes
+      - service-discovery
+    restart: unless-stopped
     networks:
       - eventos-net
 
