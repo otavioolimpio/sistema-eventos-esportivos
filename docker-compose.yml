@@ -1,20 +1,25 @@
-# So api-gateway (8080), service-discovery (8761) e mailpit (8025) publicam portas.
+# Todas as portas vem do arquivo .env da raiz (o compose o le sozinho).
+# So api-gateway, service-discovery e mailpit publicam portas (GATEWAY_PORT,
+# EUREKA_PORT e MAILPIT_WEB_PORT). Os 4 servicos de negocio sobem numa porta
+# aleatoria (server.port=0), registrada no Eureka, e nao publicam nenhuma.
 # Os servicos de negocio ficam acessiveis apenas dentro da rede eventos-net.
 services:
   # Service Discovery (Eureka): cada microsservico se registra aqui pelo nome.
-  # Painel em http://localhost:8761
+  # Painel em http://localhost:${EUREKA_PORT}
   service-discovery:
     build:
       context: .
       dockerfile: service-discovery/Dockerfile
     container_name: service-discovery
     ports:
-      - "8761:8761"
+      - "${EUREKA_PORT}:${EUREKA_PORT}"
+    environment:
+      - EUREKA_PORT=${EUREKA_PORT}
     restart: unless-stopped
     networks:
       - eventos-net
 
-  # API Gateway: UNICA porta de entrada da aplicacao (http://localhost:8080).
+  # API Gateway: UNICA porta de entrada da aplicacao (http://localhost:${GATEWAY_PORT}).
   # Roteia pelo nome do servico no Eureka (lb://servico-xxx).
   api-gateway:
     build:
@@ -22,20 +27,27 @@ services:
       dockerfile: api-gateway/Dockerfile
     container_name: api-gateway
     ports:
-      - "8080:8080"
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
     environment:
-      - EUREKA_URL=http://service-discovery:8761/eureka/
+      - GATEWAY_PORT=${GATEWAY_PORT}
+      - EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
     depends_on:
       - service-discovery
     restart: unless-stopped
     networks:
       - eventos-net
 
+  # Mailpit: servidor SMTP de teste + caixa de e-mail (http://localhost:${MAILPIT_WEB_PORT}).
+  # As portas internas tambem vem do .env (MP_UI_BIND_ADDR e MP_SMTP_BIND_ADDR).
+  # So a porta web e publicada; o SMTP fica so na rede interna.
   mailpit:
     image: axllent/mailpit
     container_name: mailpit
     ports:
-      - "8025:8025"   # caixa de e-mail (web); o SMTP 1025 fica so na rede interna
+      - "${MAILPIT_WEB_PORT}:${MAILPIT_WEB_PORT}"
+    environment:
+      - MP_UI_BIND_ADDR=0.0.0.0:${MAILPIT_WEB_PORT}
+      - MP_SMTP_BIND_ADDR=0.0.0.0:${MAILPIT_SMTP_PORT}
     restart: unless-stopped
     networks:
       - eventos-net
@@ -46,9 +58,9 @@ services:
       dockerfile: servico-notificacoes/Dockerfile
     container_name: servico-notificacoes
     environment:
-      - EUREKA_URL=http://service-discovery:8761/eureka/
+      - EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
       - SPRING_MAIL_HOST=mailpit
-      - SPRING_MAIL_PORT=1025
+      - SPRING_MAIL_PORT=${MAILPIT_SMTP_PORT}
     volumes:
       - notificacoes-data:/data
     depends_on:
@@ -64,7 +76,7 @@ services:
       dockerfile: servico-usuarios-equipes/Dockerfile
     container_name: servico-usuarios-equipes
     environment:
-      - EUREKA_URL=http://service-discovery:8761/eureka/
+      - EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
     volumes:
       - usuarios-data:/data
     depends_on:
@@ -79,7 +91,7 @@ services:
       dockerfile: servico-eventos/Dockerfile
     container_name: servico-eventos
     environment:
-      - EUREKA_URL=http://service-discovery:8761/eureka/
+      - EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
     volumes:
       - eventos-data:/data
     depends_on:
@@ -94,7 +106,7 @@ services:
       dockerfile: servico-inscricoes/Dockerfile
     container_name: servico-inscricoes
     environment:
-      - EUREKA_URL=http://service-discovery:8761/eureka/
+      - EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
     volumes:
       - inscricoes-data:/data
     depends_on:

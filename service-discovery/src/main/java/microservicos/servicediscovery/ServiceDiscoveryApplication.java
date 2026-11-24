@@ -12,7 +12,7 @@ import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
  * Os clientes OpenFeign e o API Gateway consultam este registro para descobrir
  * onde cada servico esta, por isso nenhuma URL de outro servico fica fixa no codigo.
  *
- * Painel: http://localhost:8761
+ * Painel: http://localhost:<EUREKA_PORT> (porta definida no .env da raiz)
  */
 @SpringBootApplication
 @EnableEurekaServer

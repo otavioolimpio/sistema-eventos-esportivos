@@ -1,5 +1,7 @@
+# Porta do Gateway: vem da variavel GATEWAY_PORT (definida no .env da raiz e
+# repassada pelo docker-compose). Nenhum numero de porta fica no codigo.
 server:
-  port: 8080
+  port: ${GATEWAY_PORT}
 
 spring:
   application:
@@ -31,6 +33,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      # No Docker: EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
+      defaultZone: ${EUREKA_URL:http://localhost:${EUREKA_PORT}/eureka/}
   instance:
     prefer-ip-address: true

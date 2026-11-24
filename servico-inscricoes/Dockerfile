@@ -22,5 +22,4 @@ COPY --from=build /build/servico-inscricoes/target/servico-inscricoes-*.jar app.
 RUN mkdir -p /data
 ENV INSCRICOES_DB=/data/inscricoes.db
 
-EXPOSE 8083
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

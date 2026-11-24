@@ -17,5 +17,4 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -B -f service-discovery/pom.xml p
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /build/service-discovery/target/service-discovery-*.jar app.jar
-EXPOSE 8761
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
