@@ -3,7 +3,7 @@
 Serviço do **Sistema de Gerenciamento de Eventos de E-Sports** (UFRPE — Análise e Projeto de Sistemas OO).
 Implementa o **UC07 - Enviar Notificação**, caso de uso de inclusão usado pelo **UC02** (envio de credenciais) e pelo **UC06** (resultado da inscrição).
 
-**Stack:** Java 21 · Spring Boot 3.2 · Spring Data JPA · SQLite · Docker
+**Stack:** Java 21 · Spring Boot 3.2 · Spring Data JPA · SQLite · Eureka (cliente) · Docker
 
 Módulo `servico-notificacoes` do monorepo `sistema-eventos-esportivos` (pai: `sistema-eventos-parent`).
 
@@ -32,38 +32,34 @@ Para incluir um novo canal (ex.: SMS), basta criar uma classe `SmsAdapter implem
 
 ## Como rodar
 
-### Opção 1 — Docker (recomendado)
-
-Pré-requisito: Docker com o Compose. De dentro da pasta `servico-notificacoes`:
+O serviço faz parte do sistema completo e sobe junto com os outros pelo `docker-compose.yml` da **raiz** do repositório (veja o `readme.txt` da raiz):
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-O build usa a raiz do repositório como contexto, porque o pom pai fica lá.
+- O serviço sobe numa **porta aleatória** (`server.port=0`) e se registra no Eureka como `servico-notificacoes`. Ele não publica porta fora do Docker.
+- De fora, o acesso é **só pelo API Gateway**, na rota `/notificacoes/**`.
+- Os e-mails enviados aparecem no **Mailpit**, em `http://localhost:<MAILPIT_WEB_PORT>` (porta definida no `.env` da raiz).
+- O banco SQLite fica em `/data/notificacoes.db`, no volume `notificacoes-data`.
 
-Sobem dois contêineres:
-- **servico-notificacoes**, em http://localhost:8084
-- **mailpit**, servidor de e-mail falso: todos os e-mails enviados aparecem em **http://localhost:8025**
+### Direto na máquina (opcional)
 
-### Opção 2 — direto na máquina
-
-Pré-requisitos: Java 21 e Maven.
+Pré-requisitos: Java 21, Maven, o Eureka (`service-discovery`) e um servidor SMTP (por exemplo, o Mailpit) rodando. Defina a porta do Eureka e a porta SMTP e, de dentro da pasta `servico-notificacoes`:
 
 ```bash
-docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit   # servidor de e-mail falso
-cd servico-notificacoes
+export EUREKA_PORT=8761 SPRING_MAIL_PORT=1025
 mvn spring-boot:run
 ```
 
-O banco `notificacoes.db` é criado na pasta do módulo. Rodar o Maven de dentro da pasta do módulo funciona mesmo enquanto os outros módulos listados no pom pai ainda não existem.
+O banco `notificacoes.db` é criado na pasta do módulo.
 
 ## Testando
 
-Enviar um e-mail (depois veja em http://localhost:8025):
+Pelo API Gateway (`GATEWAY_PORT` do `.env`; padrão 8080). Enviar um e-mail e depois vê-lo no Mailpit:
 
 ```bash
-curl -X POST http://localhost:8084/notificacoes \
+curl -X POST http://localhost:8080/notificacoes \
   -H "Content-Type: application/json" \
   -d '{"canal":"EMAIL","destinatario":"chefe@exemplo.com","assunto":"Inscrição aprovada","mensagem":"A inscrição da equipe Alpha foi aprovada."}'
 ```
@@ -71,12 +67,12 @@ curl -X POST http://localhost:8084/notificacoes \
 Listar as notificações registradas:
 
 ```bash
-curl http://localhost:8084/notificacoes
+curl http://localhost:8080/notificacoes
 ```
 
 No Windows (PowerShell), use `curl.exe` no lugar de `curl`, ou teste pelo Postman/Insomnia.
 
-Testes automatizados (não precisam do Docker), de dentro da pasta `servico-notificacoes`:
+Testes automatizados (não precisam do Docker nem do Eureka), de dentro da pasta `servico-notificacoes` ou com `mvn clean test` na raiz:
 
 ```bash
 mvn test
@@ -84,39 +80,43 @@ mvn test
 
 ## Configuração
 
+Nenhuma porta fica no código: a porta HTTP é aleatória e as demais vêm de variáveis de ambiente (no Docker, definidas pelo `docker-compose.yml` a partir do `.env` da raiz).
+
 | Variável | Padrão | Para que serve |
 |---|---|---|
-| `PORT` | `8084` | Porta HTTP |
+| `EUREKA_URL` ou `EUREKA_PORT` | no Docker: `http://service-discovery:${EUREKA_PORT}/eureka/` | Onde o serviço se registra (Eureka) |
 | `NOTIFICACAO_DB` | `notificacoes.db` (no Docker: `/data/notificacoes.db`) | Arquivo do SQLite |
-| `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` | Servidor SMTP |
+| `MAIL_HOST` (ou `SPRING_MAIL_HOST`) | `localhost` (no Docker: `mailpit`) | Servidor SMTP |
+| `SPRING_MAIL_PORT` | no Docker: `${MAILPIT_SMTP_PORT}` do `.env` | Porta do servidor SMTP |
 | `MAIL_FROM` | `no-reply@esports.local` | Remetente dos e-mails |
 | `DISCORD_WEBHOOK_URL` | vazio | Webhook do Discord. Sem ele, envios por DISCORD resultam em `FALHA` |
 
-**Discord (opcional):** no servidor do Discord, vá em *Configurações do canal → Integrações → Webhooks → Novo webhook*, copie a URL e rode:
+**Discord (opcional):** no servidor do Discord, vá em *Configurações do canal → Integrações → Webhooks → Novo webhook*, copie a URL e passe-a ao contêiner na variável `DISCORD_WEBHOOK_URL` (por exemplo, acrescentando-a ao `environment` do `servico-notificacoes` no `docker-compose.yml`).
 
-```bash
-DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..." docker compose up --build
-```
-
-**Gmail real (opcional, em vez do Mailpit):** crie uma *senha de app* na conta Google e defina `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_SMTP_AUTH=true`, `MAIL_STARTTLS=true`, `SPRING_MAIL_USERNAME=seu@gmail.com` e `SPRING_MAIL_PASSWORD=senha-de-app`. Não coloque a senha no código nem no repositório.
+**Gmail real (opcional, em vez do Mailpit):** crie uma *senha de app* na conta Google e defina `MAIL_HOST=smtp.gmail.com`, `SPRING_MAIL_PORT=587`, `MAIL_SMTP_AUTH=true`, `MAIL_STARTTLS=true`, `SPRING_MAIL_USERNAME=seu@gmail.com` e `SPRING_MAIL_PASSWORD=senha-de-app`. Não coloque a senha no código nem no repositório.
 
 ## Integração com os outros serviços
 
-O contrato da API e um cliente Java pronto para o Serviço de Usuários estão em **[CONTRATO-API.md](CONTRATO-API.md)**.
+O contrato da API e o cliente OpenFeign usado pelos outros serviços estão em **[CONTRATO-API.md](CONTRATO-API.md)**. Hoje chamam este serviço:
+- **Serviço de Usuários e Equipes:** credenciais do novo usuário (UC02) e aviso de equipe criada (UC03);
+- **Serviço de Inscrições:** resultado da inscrição (UC06, passo 8 da `InscricaoFacade`).
 
-Para subir todos os serviços juntos na entrega, o grupo pode criar um `docker-compose.yml` na raiz do repositório, com um bloco por serviço. O deste serviço fica assim:
+No `docker-compose.yml` da raiz, o bloco deste serviço não tem `ports` (o acesso externo é pelo Gateway):
 
 ```yaml
-  notificacoes:
+  servico-notificacoes:
     build:
       context: .
       dockerfile: servico-notificacoes/Dockerfile
-    ports: ["8084:8084"]
     environment:
-      MAIL_HOST: mailpit
-      MAIL_PORT: "1025"
-    volumes: [notificacoes-data:/data]
-    depends_on: [mailpit]
+      - EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
+      - SPRING_MAIL_HOST=mailpit
+      - SPRING_MAIL_PORT=${MAILPIT_SMTP_PORT}
+    volumes:
+      - notificacoes-data:/data
+    depends_on:
+      - service-discovery
+      - mailpit
 ```
 
 ## Estrutura

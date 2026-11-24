@@ -47,16 +47,21 @@ Integração com o `servico-notificacoes` (**UC07**):
 ## Configuração (`application.properties`)
 
 ```properties
-server.port=8081
 spring.application.name=servico-usuarios-equipes
 
-# Banco de Dados SQLite
-spring.datasource.url=jdbc:sqlite:usuarios_equipes.db
+# Porta aleatoria: o Eureka registra a porta real; o acesso externo e pelo API Gateway
+server.port=0
+eureka.instance.instance-id=${spring.application.name}:${random.value}
+
+# Banco de Dados SQLite (no Docker o arquivo fica no volume /data)
+spring.datasource.url=jdbc:sqlite:${USUARIOS_DB:usuarios_equipes.db}
 spring.datasource.driver-class-name=org.sqlite.JDBC
 spring.jpa.database-platform=org.hibernate.community.dialect.SQLiteDialect
 spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
 
-# Integração com o Serviço de Notificações
-# Fora do Docker: http://localhost:8084 | No docker-compose da raiz: http://notificacoes:8084
-app.services.notificacoes.url=${NOTIFICACOES_URL:http://localhost:8084}
+# Service Discovery (Eureka). No Docker: EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/
+eureka.client.service-url.defaultZone=${EUREKA_URL:http://localhost:${EUREKA_PORT}/eureka/}
+eureka.instance.prefer-ip-address=true
+```
+
+O Serviço de Notificações é encontrado pelo nome (`@FeignClient(name = "servico-notificacoes")`) no Eureka, sem URL no `application.properties`. Veja `servico-notificacoes/CONTRATO-API.md`.
