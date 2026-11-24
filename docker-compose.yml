@@ -49,6 +49,8 @@ services:
       - EUREKA_URL=http://service-discovery:8761/eureka/
       - SPRING_MAIL_HOST=mailpit
       - SPRING_MAIL_PORT=1025
+    volumes:
+      - notificacoes-data:/data
     depends_on:
       - service-discovery
       - mailpit
@@ -63,6 +65,8 @@ services:
     container_name: servico-usuarios-equipes
     environment:
       - EUREKA_URL=http://service-discovery:8761/eureka/
+    volumes:
+      - usuarios-data:/data
     depends_on:
       - service-discovery
     restart: unless-stopped
@@ -76,6 +80,8 @@ services:
     container_name: servico-eventos
     environment:
       - EUREKA_URL=http://service-discovery:8761/eureka/
+    volumes:
+      - eventos-data:/data
     depends_on:
       - service-discovery
     restart: unless-stopped
@@ -89,6 +95,8 @@ services:
     container_name: servico-inscricoes
     environment:
       - EUREKA_URL=http://service-discovery:8761/eureka/
+    volumes:
+      - inscricoes-data:/data
     depends_on:
       - service-discovery
     restart: unless-stopped
@@ -98,3 +106,9 @@ services:
 networks:
   eventos-net:
     driver: bridge
+
+volumes:
+  usuarios-data:
+  eventos-data:
+  inscricoes-data:
+  notificacoes-data:

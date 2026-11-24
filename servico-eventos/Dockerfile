@@ -17,5 +17,10 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -B -f servico-eventos/pom.xml pac
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /build/servico-eventos/target/servico-eventos-*.jar app.jar
+
+# O arquivo do SQLite fica em /data, que o docker-compose monta como volume
+RUN mkdir -p /data
+ENV EVENTOS_DB=/data/eventos.db
+
 EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
