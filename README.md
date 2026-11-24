@@ -101,6 +101,8 @@ No Docker, cada banco fica em `/data`, num volume nomeado (`usuarios-data`, `eve
 
 **Injeção de dependência e descoberta:** os clientes Feign são interfaces (`@FeignClient(name = "servico-eventos")`). O Spring gera a implementação ao subir e a injeta pelo construtor (por exemplo, na `InscricaoFacade`). O endereço de destino é resolvido pelo Eureka a cada chamada, a partir de uma cópia da lista de serviços renovada a cada 30 s.
 
+**Onde ver a porta aleatória:** no painel do Eureka (`http://localhost:${EUREKA_PORT}`), a coluna *Status* mostra só o `instance-id` (`nome:valor-aleatório`, por exemplo `servico-eventos:3a99dfd9…`). A porta aparece no link desse identificador (ao passar o mouse: `http://<IP do contêiner>:<porta>/actuator/info`) e em `http://localhost:${EUREKA_PORT}/eureka/apps`, no campo `<port>` de cada instância. Esse endereço só existe dentro da rede do Docker.
+
 ---
 
 ## Rotas do Gateway

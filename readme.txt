@@ -91,13 +91,24 @@ salvo quando indicado. Todos são executados NA PASTA RAIZ DO REPOSITÓRIO
   Os serviços levam cerca de 60 segundos para se registrar. Abra o painel do
   Eureka no navegador:
 
-    http://localhost:<EUREKA_PORT>      (com o .env padrão: http://localhost:8761)
+    http://localhost:<EUREKA_PORT>
+
+  (com o .env padrão: http://localhost:8761)
 
   e espere aparecerem os 5 registros com status UP:
     API-GATEWAY, SERVICO-EVENTOS, SERVICO-INSCRICOES, SERVICO-NOTIFICACOES e
     SERVICO-USUARIOS-EQUIPES.
 
-  Na coluna "Status" aparece a porta aleatória de cada serviço de negócio.
+  Na coluna "Status" aparece "UP (1) - " seguido do identificador da
+  instância, no formato nome:valor-aleatório (por exemplo,
+  "UP (1) - servico-eventos:3a99dfd9d746a4a8100f3c3bee82ab5d"). A porta
+  aleatória NÃO aparece nessa coluna. Ela aparece:
+    - ao passar o mouse sobre esse identificador: o link aponta para
+      http://<IP do contêiner>:<porta>/actuator/info;
+    - em http://localhost:<EUREKA_PORT>/eureka/apps, no campo <port> de cada
+      instância (ao lado de <ipAddr>).
+  Esse IP e essa porta só existem dentro da rede do Docker.
+
   Depois que os 5 aparecem, o Gateway leva até mais 30 segundos para atualizar
   a lista dele (veja o item 11).
 
