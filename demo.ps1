@@ -1,9 +1,10 @@
 ﻿# Roteiro da demonstração — Sistema de Eventos de E-Sports (Grupo 2)
-# Serviço de Usuários e Equipes (8081) + Serviço de Notificações (8084) + Mailpit (8025)
+# UC02, UC03 e UC07, com todas as chamadas pelo API Gateway; e-mails no Mailpit.
+# As portas vêm do arquivo .env da raiz (GATEWAY_PORT e MAILPIT_WEB_PORT): nenhuma fica neste script.
 #
 # Uso, no PowerShell, de dentro da pasta do repositório sistema-eventos-esportivos:
-#   powershell -ExecutionPolicy Bypass -File C:\caminho\do\demo.ps1            (containers já rodando)
-#   powershell -ExecutionPolicy Bypass -File C:\caminho\do\demo.ps1 -Zerar     (apaga os bancos e sobe tudo do zero)
+#   powershell -ExecutionPolicy Bypass -File .\demo.ps1            (containers já rodando)
+#   powershell -ExecutionPolicy Bypass -File .\demo.ps1 -Zerar     (apaga os bancos e sobe tudo do zero)
 # Precisa de: Docker Desktop em execução.
 #
 # A cada passo o script mostra o que vai fazer e espera você apertar Enter.
@@ -13,20 +14,27 @@ param([switch]$Zerar)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # esconde a barra de progresso das chamadas HTTP
 
-$USUARIOS = 'http://localhost:8081'
-$NOTIFICACOES = 'http://localhost:8084'
-$MAILPIT = 'http://localhost:8025'
-if ($env:DEMO_USUARIOS) { $USUARIOS = $env:DEMO_USUARIOS }
-if ($env:DEMO_NOTIFICACOES) { $NOTIFICACOES = $env:DEMO_NOTIFICACOES }
-if ($env:DEMO_MAILPIT) { $MAILPIT = $env:DEMO_MAILPIT }
-
-$SUF = Get-Date -Format 'HHmmss'   # deixa e-mails e CPFs únicos, para poder rodar mais de uma vez
-
-if (-not (Test-Path 'docker-compose.yml') -or -not (Test-Path 'servico-notificacoes')) {
+if (-not (Test-Path 'docker-compose.yml') -or -not (Test-Path '.env')) {
     Write-Host 'Rode este script de dentro da pasta do repositório sistema-eventos-esportivos' -ForegroundColor Red
-    Write-Host '(a que tem o docker-compose.yml e as pastas servico-*).' -ForegroundColor Red
+    Write-Host '(a que tem o docker-compose.yml e o arquivo .env).' -ForegroundColor Red
     exit 1
 }
+
+# Lê as portas do .env (linhas CHAVE=VALOR; ignora comentários)
+$PORTAS = @{}
+foreach ($linha in Get-Content '.env') {
+    if ($linha -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') { $PORTAS[$Matches[1]] = $Matches[2] }
+}
+foreach ($chave in 'GATEWAY_PORT', 'MAILPIT_WEB_PORT') {
+    if (-not $PORTAS[$chave]) { Write-Host "Falta $chave no arquivo .env" -ForegroundColor Red; exit 1 }
+}
+
+# Tudo passa pelo API Gateway: o script não conhece as portas dos serviços de negócio
+# (elas são aleatórias e ficam registradas no Eureka).
+$GATEWAY = "http://localhost:$($PORTAS['GATEWAY_PORT'])"
+$MAILPIT = "http://localhost:$($PORTAS['MAILPIT_WEB_PORT'])"
+
+$SUF = Get-Date -Format 'HHmmss'   # deixa e-mails e CPFs únicos, para poder rodar mais de uma vez
 
 function Titulo($texto) { Write-Host ''; Write-Host "== $texto ==" -ForegroundColor Cyan }
 function Fala($texto) { Write-Host $texto -ForegroundColor Yellow }
@@ -74,7 +82,7 @@ function NovoUsuario($nome, $email, $cpf, $perfil) {
 }
 
 function UltimaNotificacao {
-    $lista = Invoke-RestMethod "$NOTIFICACOES/notificacoes?limite=1"
+    $lista = Invoke-RestMethod "$GATEWAY/notificacoes?limite=1"
     $n = $lista[0]
     foreach ($campo in 'canal', 'destinatario', 'status', 'erro') {
         $valor = $n.$campo
@@ -95,15 +103,16 @@ if ($Zerar) {
     Titulo 'Preparação: apagando os bancos e subindo tudo do zero'
     Compose down -v
     Compose up --build -d
-    Fala 'Aguardando os serviços subirem...'
-    for ($i = 0; $i -lt 60; $i++) {
-        if ((EstaNoAr "$USUARIOS/api/usuarios") -and (EstaNoAr "$NOTIFICACOES/notificacoes")) { break }
-        Start-Sleep -Seconds 2
-    }
 }
 
-Titulo '0. Os três contêineres no ar'
+Titulo '0. Os 7 contêineres no ar'
 Compose ps
+Fala 'Aguardando os serviços se registrarem no Eureka e o Gateway enxergá-los (até uns 2 minutos)...'
+for ($i = 0; $i -lt 90; $i++) {
+    if ((EstaNoAr "$GATEWAY/api/usuarios") -and (EstaNoAr "$GATEWAY/notificacoes?limite=1")) { break }
+    Start-Sleep -Seconds 2
+}
+Fala "API Gateway: $GATEWAY  (única porta de entrada)"
 Fala "Abra no navegador: $MAILPIT (caixa de e-mail de teste)"
 Pausa
 
@@ -113,7 +122,7 @@ Fala 'O Organizador cadastra a Ana como Chefe de Equipe. O Serviço de Usuários
 Fala 'provisória e chama o Serviço de Notificações (POST /notificacoes).'
 Fala 'Lá dentro: NotificationClientManager.getInstance() (Singleton) escolhe o EmailAdapter (Adapter).'
 Pausa
-$r = Post "$USUARIOS/api/usuarios" (NovoUsuario 'Ana' "ana.$SUF@exemplo.com" "cpf-ana-$SUF" 'CHEFE_EQUIPE')
+$r = Post "$GATEWAY/api/usuarios" (NovoUsuario 'Ana' "ana.$SUF@exemplo.com" "cpf-ana-$SUF" 'CHEFE_EQUIPE')
 $chefeId = ($r.Corpo | ConvertFrom-Json).usuario.id
 Fala 'credenciaisEnviadas: true -> atualize o Mailpit: chegou o e-mail "Suas credenciais de acesso".'
 Pausa
@@ -126,7 +135,7 @@ Titulo '2. RN03 / FA03 - Falha no e-mail NÃO desfaz o cadastro'
 Fala 'Vamos derrubar o servidor de e-mail (Mailpit) e cadastrar outro usuário.'
 Pausa
 Compose stop mailpit
-$r = Post "$USUARIOS/api/usuarios" (NovoUsuario 'Bruno' "bruno.$SUF@exemplo.com" "cpf-bruno-$SUF" 'JOGADOR')
+$r = Post "$GATEWAY/api/usuarios" (NovoUsuario 'Bruno' "bruno.$SUF@exemplo.com" "cpf-bruno-$SUF" 'JOGADOR')
 Fala 'HTTP 201 com credenciaisEnviadas: false e um aviso: o usuário foi cadastrado mesmo assim.'
 Fala 'No Serviço de Notificações, a tentativa ficou registrada como FALHA (FA01):'
 UltimaNotificacao
@@ -145,7 +154,7 @@ Fala '(cada um recebe o próprio e-mail de credenciais no Mailpit)...'
 $jogadores = @()
 foreach ($i in 1..5) {
     $dados = NovoUsuario "Jogador $i" "jogador$i.$SUF@exemplo.com" "cpf-j$i-$SUF" 'JOGADOR'
-    $resp = Invoke-RestMethod -Uri "$USUARIOS/api/usuarios" -Method Post -ContentType 'application/json; charset=utf-8' `
+    $resp = Invoke-RestMethod -Uri "$GATEWAY/api/usuarios" -Method Post -ContentType 'application/json; charset=utf-8' `
         -Body ([System.Text.Encoding]::UTF8.GetBytes(($dados | ConvertTo-Json -Compress)))
     $jogadores += [int]$resp.usuario.id
 }
@@ -154,7 +163,7 @@ Pausa
 
 Fala 'Tentativa 1: equipe de FPS com só 4 jogadores. A StrategyFPS exige exatamente 5.'
 Pausa
-$r = Post "$USUARIOS/api/equipes" ([ordered]@{
+$r = Post "$GATEWAY/api/equipes" ([ordered]@{
         nome = 'Alpha'; modalidade = 'FPS'; chefeId = $chefeId; jogadoresIds = @($jogadores[0..3]) })
 Fala 'HTTP 400: o ContextoValidacaoElenco escolheu a StrategyFPS pela modalidade, e ela recusou.'
 Pausa
@@ -162,7 +171,7 @@ Pausa
 Fala 'Tentativa 2: a mesma equipe com 5 jogadores.'
 Pausa
 $antes = TotalEmails
-$r = Post "$USUARIOS/api/equipes" ([ordered]@{
+$r = Post "$GATEWAY/api/equipes" ([ordered]@{
         nome = 'Alpha'; modalidade = 'FPS'; chefeId = $chefeId; jogadoresIds = @($jogadores) })
 Fala "HTTP 201: equipe criada. A Ana recebeu o aviso por e-mail (Mailpit: $antes -> $(TotalEmails) mensagens)."
 Pausa
@@ -170,12 +179,12 @@ Pausa
 # ─────────────────────────────────────────────────────────────
 Titulo 'Resumo'
 Fala 'Usuários cadastrados:'
-$usuarios = Invoke-RestMethod "$USUARIOS/api/usuarios"
+$usuarios = Invoke-RestMethod "$GATEWAY/api/usuarios"
 foreach ($u in $usuarios) {
     Write-Host ("  {0,3}  {1,-10} {2}" -f $u.id, $u.nome, $u.tipoPerfil)
 }
 Fala 'Notificações registradas:'
-$notificacoes = Invoke-RestMethod "$NOTIFICACOES/notificacoes"
+$notificacoes = Invoke-RestMethod "$GATEWAY/notificacoes"
 foreach ($n in $notificacoes) {
     Write-Host ("  {0,-8} {1,-6} {2}" -f $n.status, $n.canal, $n.destinatario)
 }
