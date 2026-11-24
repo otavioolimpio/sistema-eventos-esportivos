@@ -17,5 +17,4 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -B -f api-gateway/pom.xml package
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /build/api-gateway/target/api-gateway-*.jar app.jar
-EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

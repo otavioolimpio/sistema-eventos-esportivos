@@ -25,5 +25,4 @@ COPY --from=build /build/servico-notificacoes/target/servico-notificacoes-*.jar 
 RUN mkdir -p /data
 ENV NOTIFICACAO_DB=/data/notificacoes.db
 
-EXPOSE 8084
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

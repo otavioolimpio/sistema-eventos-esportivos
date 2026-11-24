@@ -1,14 +1,16 @@
 # Contrato da API — Serviço de Notificações (`INotificacaoService`)
 
-Documento para a dupla do **Serviço de Usuários** (e, depois, do Serviço de Inscrições):
+Documento para os serviços que enviam notificações (**Usuários e Equipes** e **Inscrições**):
 como chamar o Serviço de Notificações para enviar uma mensagem.
 
 ## Endereço
 
-| Onde o serviço que chama está rodando | URL base |
+O serviço não tem endereço fixo: ele sobe numa porta aleatória e se registra no **Eureka** com o nome `servico-notificacoes`.
+
+| Quem chama | Como chega ao serviço |
 |---|---|
-| Na máquina, fora do Docker | `http://localhost:8084` |
-| Em outro contêiner do mesmo `docker-compose` | `http://notificacoes:8084` |
+| Outro microsserviço (dentro do Docker) | Cliente **OpenFeign** pelo nome: `@FeignClient(name = "servico-notificacoes")`. O Eureka informa o IP e a porta real |
+| De fora do Docker (navegador, `curl`, painel) | Só pelo **API Gateway**: `http://localhost:<GATEWAY_PORT>/notificacoes` (porta no `.env` da raiz) |
 
 ## `POST /notificacoes` — enviar uma notificação
 
@@ -63,62 +65,56 @@ Usado pelo **UC02** (envio das credenciais do novo usuário) e pelo **UC06** (re
 - `GET /notificacoes/{id}`: uma notificação específica (404 se não existir).
 - `GET /notificacoes?limite=50`: as notificações mais recentes.
 
-## Exemplo de cliente Java para o Serviço de Usuários
+## Cliente Java (OpenFeign)
 
-Basta copiar esta classe para o módulo `servico-usuarios-equipes` (Spring Boot 3.2 ou superior) e injetá-la onde o UC02 envia as credenciais:
+É assim que os serviços de **Usuários e Equipes** e de **Inscrições** chamam este serviço. O exemplo é o do Serviço de Usuários (`servico-usuarios-equipes/src/main/java/microservicos/servicousuariosequipes/`); o de Inscrições é igual, no pacote `microservicos.servicoinscricoes.client`.
+
+**1. A interface do cliente** (`client/NotificacaoClient.java`). O Spring gera a implementação ao subir; o endereço é resolvido pelo Eureka a cada chamada, pelo nome do serviço:
 
 ```java
-package br.com.microservicos.servicousuariosequipes.cliente;
+package microservicos.servicousuariosequipes.client;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
+import microservicos.servicousuariosequipes.dto.NotificacaoRequestDTO;
+import microservicos.servicousuariosequipes.dto.NotificacaoResponseDTO;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
-import java.util.Map;
+/** Cliente da interface INotificacaoService (servico-notificacoes, POST /notificacoes). */
+@FeignClient(name = "servico-notificacoes", url = "${app.services.notificacoes.url:}")
+public interface NotificacaoClient {
 
-/** Cliente da interface INotificacaoService (Serviço de Notificações). */
-@Component
-public class NotificacaoClient {
+    @PostMapping("/notificacoes")
+    NotificacaoResponseDTO enviarNotificacao(@RequestBody NotificacaoRequestDTO request);
+}
+```
 
-    private final RestClient restClient;
+O atributo `url` fica **vazio** por padrão, e aí o Feign usa o Eureka. A propriedade `app.services.notificacoes.url` só é definida nos **testes**, para apontar para um servidor falso; no Docker ela não existe.
 
-    public NotificacaoClient(@Value("${servicos.notificacoes.url:http://localhost:8084}") String urlBase) {
-        this.restClient = RestClient.builder().baseUrl(urlBase).build();
-    }
+**2. Os DTOs** (`dto/`). O cliente deve devolver um DTO, e não `void`, para poder ler o `status`:
 
-    /**
-     * Envia as credenciais do novo usuário (UC02, SF01, passo 6).
-     * @return true se o e-mail foi enviado; false se falhou (FA03 do UC02)
-     */
-    public boolean enviarCredenciais(String email, String senhaProvisoria) {
-        Map<String, String> corpo = Map.of(
-                "canal", "EMAIL",
-                "destinatario", email,
-                "assunto", "Suas credenciais de acesso",
-                "mensagem", "Sua senha provisória é " + senhaProvisoria
-                        + ". Troque-a no primeiro acesso.");
-        try {
-            Map<?, ?> resposta = restClient.post()
-                    .uri("/notificacoes")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(corpo)
-                    .retrieve()
-                    .body(Map.class);
-            return resposta != null && "ENVIADA".equals(resposta.get("status"));
-        } catch (RestClientException e) {
-            // Serviço de Notificações indisponível: tratar como falha de envio (FA03 do UC02)
-            return false;
-        }
+```java
+public record NotificacaoRequestDTO(String canal, String destinatario, String assunto, String mensagem) {}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record NotificacaoResponseDTO(String id, String status, String erro) {
+    public boolean foiEnviada() { return "ENVIADA".equals(status); }
+}
+```
+
+**3. Quem usa o cliente** (`client/NotificacaoGateway.java`) só considera enviado quando `status == "ENVIADA"` e nunca deixa uma exceção escapar (RN03 / FA03 do UC02):
+
+```java
+public boolean enviarEmail(String destinatario, String assunto, String mensagem) {
+    try {
+        NotificacaoResponseDTO resposta = client.enviarNotificacao(
+                new NotificacaoRequestDTO("EMAIL", destinatario, assunto, mensagem));
+        return resposta != null && resposta.foiEnviada();
+    } catch (Exception e) {
+        // Serviço de Notificações indisponível: tratar como falha de envio
+        return false;
     }
 }
 ```
 
-No `application.properties` do Serviço de Usuários, quando rodar no Docker:
-
-```properties
-servicos.notificacoes.url=${NOTIFICACOES_URL:http://localhost:8084}
-```
-
-e no `docker-compose` defina `NOTIFICACOES_URL: http://notificacoes:8084`.
+**4. Configuração:** a aplicação precisa de `@EnableFeignClients` e da dependência `spring-cloud-starter-netflix-eureka-client`, com `eureka.client.service-url.defaultZone` apontando para o Eureka (no Docker, `EUREKA_URL=http://service-discovery:${EUREKA_PORT}/eureka/`). Nenhuma URL deste serviço vai no `application.properties`.

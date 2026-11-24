@@ -22,5 +22,4 @@ COPY --from=build /build/servico-eventos/target/servico-eventos-*.jar app.jar
 RUN mkdir -p /data
 ENV EVENTOS_DB=/data/eventos.db
 
-EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

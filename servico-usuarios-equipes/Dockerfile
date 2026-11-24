@@ -25,5 +25,4 @@ COPY --from=build /build/servico-usuarios-equipes/target/servico-usuarios-equipe
 RUN mkdir -p /data
 ENV USUARIOS_DB=/data/usuarios_equipes.db
 
-EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
